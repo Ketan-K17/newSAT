@@ -248,3 +248,43 @@ router_guided_json = {
     "required": ["next_agent"]
 }
 
+# File System Manager
+
+file_system_manager_prompt_template = """
+You are a file system manager. You will be provided with a file-tree depicting the structure of the file system.
+Your task is to execute the actions as given by the user query.
+
+Here is the path to the file system:
+{file_sys_path}
+
+Here is the current file-tree:
+{file_tree}
+
+Here is the user query:
+Query: {query}
+
+If you receive feedback, you must adjust your plan accordingly. Here is the feedback received:
+Feedback: {feedback}
+
+Your response must take the following json format:
+
+    "batch_script": "The batch script to execute the actions given by the user query",
+    "file_tree_after_execution": "The file-tree after the actions have been executed"
+
+"""
+
+file_system_manager_guided_json = {
+    "type": "object",
+    "properties": {
+        "batch_script": {
+            "type": "string",
+            "description": "The batch script to execute the actions given by the user query"
+        },
+        "file_tree_after_execution": {
+            "type": "string",
+            "description": "The file-tree after the actions have been executed"
+        },
+    },
+    "required": ["batch_script", "file_tree_after_execution"]
+}   
+

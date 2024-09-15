@@ -3,34 +3,29 @@ from langgraph.graph.message import add_messages
 
 # Define the state object for the agent graph
 class AgentGraphState(TypedDict):
-    research_question: str
-    planner_response: Annotated[list, add_messages]
+    user_query: str # prompt sent by user
+    file_sys_path: str # path to the file system
+    file_system_manager_response: Annotated[list, add_messages]
+    file_tree_tool_response: Annotated[list, add_messages]
+    run_batch_script_tool_response: Annotated[list, add_messages]
+
     selector_response: Annotated[list, add_messages]
     reporter_response: Annotated[list, add_messages]
     reviewer_response: Annotated[list, add_messages]
     router_response: Annotated[list, add_messages]
-    serper_response: Annotated[list, add_messages]
-    scraper_response: Annotated[list, add_messages]
     final_reports: Annotated[list, add_messages]
     end_chain: Annotated[list, add_messages]
 
 # Define the nodes in the agent graph
 def get_agent_graph_state(state:AgentGraphState, state_key:str):
-    if state_key == "planner_all":
-        return state["planner_response"]
-    elif state_key == "planner_latest":
-        if state["planner_response"]:
-            return state["planner_response"][-1]
+    if state_key == "file_system_manager_all":
+        return state["file_system_manager_response"]
+    elif state_key == "file_system_manager_latest":
+        if state["file_system_manager_response"]:
+            return state["file_system_manager_response"][-1]
         else:
-            return state["planner_response"]
+            return state["file_system_manager_response"]
     
-    elif state_key == "selector_all":
-        return state["selector_response"]
-    elif state_key == "selector_latest":
-        if state["selector_response"]:
-            return state["selector_response"][-1]
-        else:
-            return state["selector_response"]
     
     elif state_key == "reporter_all":
         return state["reporter_response"]
@@ -48,34 +43,34 @@ def get_agent_graph_state(state:AgentGraphState, state_key:str):
         else:
             return state["reviewer_response"]
         
-    elif state_key == "serper_all":
-        return state["serper_response"]
-    elif state_key == "serper_latest":
-        if state["serper_response"]:
-            return state["serper_response"][-1]
+    elif state_key == "file_tree_tool_all":
+        return state["file_tree_tool_response"]
+    elif state_key == "file_tree_tool_latest":
+        if state["file_tree_tool_response"]:
+            return state["file_tree_tool_response"][-1]
         else:
-            return state["serper_response"]
+            return state["file_tree_tool_response"]
     
-    elif state_key == "scraper_all":
-        return state["scraper_response"]
-    elif state_key == "scraper_latest":
-        if state["scraper_response"]:
-            return state["scraper_response"][-1]
+    elif state_key == "batch_script_tool_all":
+        return state["batch_script_tool_response"]
+    elif state_key == "batch_script_tool_latest":
+        if state["batch_script_tool_response"]:
+            return state["batch_script_tool_response"][-1]
         else:
-            return state["scraper_response"]
+            return state["batch_script_tool_response"]
         
     else:
         return None
     
 state = {
-    "research_question":"",
-    "planner_response": [],
-    "selector_response": [],
+    "user_query":"",
+    "file_sys_path":"c:\\Users\\ketan\\Desktop\\SPAIDER-SPACE\\graph_websearch_agent\\testfolder",
+    "file_system_manager_response": [],
+    "file_tree_tool_response": [],
+    "batch_script_tool_response": [],
     "reporter_response": [],
     "reviewer_response": [],
     "router_response": [],
-    "serper_response": [],
-    "scraper_response": [],
     "final_reports": [],
     "end_chain": []
 }

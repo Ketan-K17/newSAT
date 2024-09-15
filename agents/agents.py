@@ -13,7 +13,8 @@ from prompts.prompts import (
     selector_prompt_template,
     reporter_prompt_template,
     reviewer_prompt_template,
-    router_prompt_template
+    router_prompt_template,
+    file_system_manager_prompt_template
 )
 from utils.helper_functions import get_current_utc_datetime, check_for_content
 from states.state import AgentGraphState
@@ -74,67 +75,67 @@ class Agent:
     def update_state(self, key, value):
         self.state = {**self.state, key: value}
 
-class PlannerAgent(Agent):
-    def invoke(self, research_question, prompt=planner_prompt_template, feedback=None):
-        feedback_value = feedback() if callable(feedback) else feedback
-        feedback_value = check_for_content(feedback_value)
+# class PlannerAgent(Agent):
+#     def invoke(self, research_question, prompt=planner_prompt_template, feedback=None):
+#         feedback_value = feedback() if callable(feedback) else feedback
+#         feedback_value = check_for_content(feedback_value)
 
-        planner_prompt = prompt.format(
+#         planner_prompt = prompt.format(
+#             feedback=feedback_value,
+#             datetime=get_current_utc_datetime()
+#         )
+
+#         messages = [
+#             {"role": "system", "content": planner_prompt},
+#             {"role": "user", "content": f"research question: {research_question}"}
+#         ]
+
+#         llm = self.get_llm()
+#         ai_msg = llm.invoke(messages)
+#         response = ai_msg.content
+
+#         self.update_state("planner_response", response)
+#         print(colored(f"Planner 👩🏿‍💻:", 'cyan'))
+#         try:
+#             response_dict = json.loads(response)
+#             for key, value in response_dict.items():
+#                 print(colored(f"  {key.upper()}: {value}", 'cyan'))
+#         except json.JSONDecodeError:
+#             print(colored(f"  {response}", 'cyan'))
+#         return self.state
+    
+class FileSystemManagerAgent(Agent):
+    def invoke(self, user_query, prompt = file_system_manager_prompt_template, feedback=None, file_tree=None):
+        feedback_value = feedback() if callable(feedback) else feedback
+        file_tree_value = file_tree() if callable(file_tree) else file_tree
+
+        feedback_value = check_for_content(feedback_value)
+        file_tree_value = check_for_content(file_tree_value)
+
+        file_system_manager_prompt = prompt.format(
             feedback=feedback_value,
-            datetime=get_current_utc_datetime()
+            file_tree = file_tree_value,
+            file_sys_path = self.state["file_sys_path"],
+            query = user_query
         )
 
         messages = [
-            {"role": "system", "content": planner_prompt},
-            {"role": "user", "content": f"research question: {research_question}"}
+            {"role": "system", "content": file_system_manager_prompt},
+            {"role": "user", "content": f"user query: {user_query}"}
         ]
 
         llm = self.get_llm()
         ai_msg = llm.invoke(messages)
         response = ai_msg.content
-
-        self.update_state("planner_response", response)
-        print(colored(f"Planner 👩🏿‍💻:", 'cyan'))
-        try:
-            response_dict = json.loads(response)
-            for key, value in response_dict.items():
-                print(colored(f"  {key.upper()}: {value}", 'cyan'))
-        except json.JSONDecodeError:
-            print(colored(f"  {response}", 'cyan'))
-        return self.state
-
-class SelectorAgent(Agent):
-    def invoke(self, research_question, prompt=selector_prompt_template, feedback=None, previous_selections=None, serp=None):
-        feedback_value = feedback() if callable(feedback) else feedback
-        previous_selections_value = previous_selections() if callable(previous_selections) else previous_selections
-
-        feedback_value = check_for_content(feedback_value)
-        previous_selections_value = check_for_content(previous_selections_value)
-
-        selector_prompt = prompt.format(
-            feedback=feedback_value,
-            previous_selections=previous_selections_value,
-            serp=serp().content,
-            datetime=get_current_utc_datetime()
-        )
-
-        messages = [
-            {"role": "system", "content": selector_prompt},
-            {"role": "user", "content": f"research question: {research_question}"}
-        ]
-
-        llm = self.get_llm()
-        ai_msg = llm.invoke(messages)
-        response = ai_msg.content
-
-        print(colored(f"Selector 🧑�‍💻:", 'green'))
+        
+        self.update_state("file_system_manager_response", response)
+        print(colored(f"File System Manager 👩🏿‍💻:", 'cyan'))
         try:
             response_dict = json.loads(response)
             for key, value in response_dict.items():
                 print(colored(f"  {key.upper()}: {value}", 'green'))
         except json.JSONDecodeError:
             print(colored(f"  {response}", 'green'))
-        self.update_state("selector_response", response)
         return self.state
 
 class ReporterAgent(Agent):
@@ -166,7 +167,7 @@ class ReporterAgent(Agent):
         print(colored(f"Reporter 👨‍💻: {response}", 'yellow'))
         self.update_state("reporter_response", response)
         return self.state
-
+    
 class ReviewerAgent(Agent):
     def invoke(self, research_question, prompt=reviewer_prompt_template, reporter=None, feedback=None):
         reporter_value = reporter() if callable(reporter) else reporter
@@ -221,6 +222,7 @@ class RouterAgent(Agent):
         self.update_state("router_response", response)
         return self.state
 
+
 class FinalReportAgent(Agent):
     def invoke(self, final_response=None):
         final_response_value = final_response() if callable(final_response) else final_response
@@ -234,3 +236,7 @@ class EndNodeAgent(Agent):
     def invoke(self):
         self.update_state("end_chain", "end_chain")
         return self.state
+    
+
+
+            

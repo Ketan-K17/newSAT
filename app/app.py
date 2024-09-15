@@ -4,9 +4,9 @@ from agent_graph.graph import create_graph, compile_workflow
 # model = 'llama3:instruct'
 # model_endpoint = None
 
-server = 'openai'
-model = 'gpt-4o'
-model_endpoint = None
+# server = 'openai'
+# model = 'gpt-4o'
+# model_endpoint = None
 
 # server = 'vllm'
 # model = 'meta-llama/Meta-Llama-3-70B-Instruct' # full HF path
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         if query.lower() == "exit":
             break
 
-        dict_inputs = {"research_question": query}
+        dict_inputs = {"user_query": query}
         # thread = {"configurable": {"thread_id": "4"}}
         limit = {"recursion_limit": iterations}
 

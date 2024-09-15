@@ -7,13 +7,12 @@ from langchain_core.messages import HumanMessage
 from models.openai_models import get_open_ai_json
 from langgraph.checkpoint.sqlite import SqliteSaver
 from agents.agents import (
-    PlannerAgent,
-    SelectorAgent,
     ReporterAgent,
     ReviewerAgent,
     RouterAgent,
     FinalReportAgent,
-    EndNodeAgent
+    EndNodeAgent,
+    FileSystemManagerAgent
 )
 from prompts.prompts import (
     reviewer_prompt_template, 
@@ -24,52 +23,73 @@ from prompts.prompts import (
     reviewer_guided_json,
     selector_guided_json,
     planner_guided_json,
-    router_guided_json
+    router_guided_json,
+    file_system_manager_prompt_template,
+    file_system_manager_guided_json
 
 )
 from tools.google_serper import get_google_serper
 from tools.basic_scraper import scrape_website
+from tools.get_file_tree import get_file_tree
+from tools.run_batch_script import run_batch_script
 from states.state import AgentGraphState, get_agent_graph_state, state
 
 def create_graph(server=None, model=None, stop=None, model_endpoint=None, temperature=0):
     graph = StateGraph(AgentGraphState)
 
     graph.add_node(
-        "planner", 
-        lambda state: PlannerAgent(
+        "file_system_manager",
+        lambda state: FileSystemManagerAgent(
             state=state,
             model=model,
             server=server,
-            guided_json=planner_guided_json,
+            guided_json=file_system_manager_guided_json,
             stop=stop,
             model_endpoint=model_endpoint,
             temperature=temperature
         ).invoke(
-            research_question=state["research_question"],
+            user_query=state["user_query"],
             feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
-            # previous_plans=lambda: get_agent_graph_state(state=state, state_key="planner_all"),
-            prompt=planner_prompt_template
+            prompt=file_system_manager_prompt_template
         )
     )
 
-    graph.add_node(
-        "selector",
-        lambda state: SelectorAgent(
-            state=state,
-            model=model,
-            server=server,
-            guided_json=selector_guided_json,
-            stop=stop,
-            model_endpoint=model_endpoint,
-            temperature=temperature
-        ).invoke(
-            research_question=state["research_question"],
-            feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
-            previous_selections=lambda: get_agent_graph_state(state=state, state_key="selector_all"),
-            serp=lambda: get_agent_graph_state(state=state, state_key="serper_latest"),
-            prompt=selector_prompt_template,
-        )
-    )
+    # graph.add_node(
+    #     "planner", 
+    #     lambda state: PlannerAgent(
+    #         state=state,
+    #         model=model,
+    #         server=server,
+    #         guided_json=planner_guided_json,
+    #         stop=stop,
+    #         model_endpoint=model_endpoint,
+    #         temperature=temperature
+    #     ).invoke(
+    #         research_question=state["research_question"],
+    #         feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
+    #         # previous_plans=lambda: get_agent_graph_state(state=state, state_key="planner_all"),
+    #         prompt=planner_prompt_template
+    #     )
+    # )
+
+    # graph.add_node(
+    #     "selector",
+    #     lambda state: SelectorAgent(
+    #         state=state,
+    #         model=model,
+    #         server=server,
+    #         guided_json=selector_guided_json,
+    #         stop=stop,
+    #         model_endpoint=model_endpoint,
+    #         temperature=temperature
+    #     ).invoke(
+    #         research_question=state["research_question"],
+    #         feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
+    #         previous_selections=lambda: get_agent_graph_state(state=state, state_key="selector_all"),
+    #         serp=lambda: get_agent_graph_state(state=state, state_key="serper_latest"),
+    #         prompt=selector_prompt_template,
+    #     )
+    # )
 
     graph.add_node(
         "reporter", 
@@ -138,19 +158,36 @@ def create_graph(server=None, model=None, stop=None, model_endpoint=None, temper
     )
 
 
+    # graph.add_node(
+    #     "serper_tool",
+    #     lambda state: get_google_serper(
+    #         state=state,
+    #         plan=lambda: get_agent_graph_state(state=state, state_key="planner_latest")
+    #     )
+    # )
+
+    # graph.add_node(
+    #     "scraper_tool",
+    #     lambda state: scrape_website(
+    #         state=state,
+    #         research=lambda: get_agent_graph_state(state=state, state_key="selector_latest")
+    #     )
+    # )
+
     graph.add_node(
-        "serper_tool",
-        lambda state: get_google_serper(
+        "file_tree_tool",
+        lambda state: get_file_tree(
             state=state,
-            plan=lambda: get_agent_graph_state(state=state, state_key="planner_latest")
+            directory=state["file_sys_path"]
+            # file_sys_path=lambda: get_agent_graph_state(state=state, state_key="file_system_manager_response")
         )
     )
 
     graph.add_node(
-        "scraper_tool",
-        lambda state: scrape_website(
+        "batch_script_tool",
+        lambda state: run_batch_script(
             state=state,
-            research=lambda: get_agent_graph_state(state=state, state_key="selector_latest")
+            script=lambda: get_agent_graph_state(state=state, state_key="file_system_manager_response")
         )
     )
 
@@ -187,12 +224,11 @@ def create_graph(server=None, model=None, stop=None, model_endpoint=None, temper
         return next_agent
 
     # Add edges to the graph
-    graph.set_entry_point("planner")
+    graph.set_entry_point("file_tree_tool")
     graph.set_finish_point("end")
-    graph.add_edge("planner", "serper_tool")
-    graph.add_edge("serper_tool", "selector")
-    graph.add_edge("selector", "scraper_tool")
-    graph.add_edge("scraper_tool", "reporter")
+    graph.add_edge("file_tree_tool", "file_system_manager")
+    graph.add_edge("file_system_manager", "batch_script_tool")
+    graph.add_edge("batch_script_tool", "reporter")
     graph.add_edge("reporter", "reviewer")
     graph.add_edge("reviewer", "router")
 
