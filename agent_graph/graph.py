@@ -1,44 +1,29 @@
 import json
-import ast
-from langchain_core.runnables import RunnableLambda
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, Annotated
 from langchain_core.messages import HumanMessage
-from models.openai_models import get_open_ai_json
-from langgraph.checkpoint.sqlite import SqliteSaver
 from agents.agents import (
-    ReporterAgent,
-    ReviewerAgent,
-    RouterAgent,
+    FileSystemManagerAgent,
     FinalReportAgent,
-    EndNodeAgent,
-    FileSystemManagerAgent
+    EndNodeAgent
 )
 from prompts.prompts import (
-    reviewer_prompt_template, 
-    planner_prompt_template, 
-    selector_prompt_template, 
-    reporter_prompt_template,
-    router_prompt_template,
-    reviewer_guided_json,
-    selector_guided_json,
-    planner_guided_json,
-    router_guided_json,
     file_system_manager_prompt_template,
-    file_system_manager_guided_json
-
+    file_system_manager_guided_json,
 )
-from tools.google_serper import get_google_serper
-from tools.basic_scraper import scrape_website
-from tools.get_file_tree import get_file_tree
-from tools.run_batch_script import run_batch_script
+from tools.get_file_tree import get_file_tree_tool
+from tools.run_batch_script import run_batch_script_tool
 from states.state import AgentGraphState, get_agent_graph_state, state
 
 def create_graph(server=None, model=None, stop=None, model_endpoint=None, temperature=0):
     graph = StateGraph(AgentGraphState)
 
+    graph.add_node("file_tree_tool", lambda state: {
+        "file_tree_tool_response": [HumanMessage(content=get_file_tree_tool.invoke({"directory": state["input_directory"]}))]
+    })
+
     graph.add_node(
-        "file_system_manager",
+        "file_system_manager", 
         lambda state: FileSystemManagerAgent(
             state=state,
             model=model,
@@ -48,147 +33,19 @@ def create_graph(server=None, model=None, stop=None, model_endpoint=None, temper
             model_endpoint=model_endpoint,
             temperature=temperature
         ).invoke(
-            user_query=state["user_query"],
-            feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
+            input_query=state["input_query"],
+            file_tree=lambda: get_agent_graph_state(state=state, state_key="file_tree_tool_latest"),
             prompt=file_system_manager_prompt_template
-        )
-    )
-
-    # graph.add_node(
-    #     "planner", 
-    #     lambda state: PlannerAgent(
-    #         state=state,
-    #         model=model,
-    #         server=server,
-    #         guided_json=planner_guided_json,
-    #         stop=stop,
-    #         model_endpoint=model_endpoint,
-    #         temperature=temperature
-    #     ).invoke(
-    #         research_question=state["research_question"],
-    #         feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
-    #         # previous_plans=lambda: get_agent_graph_state(state=state, state_key="planner_all"),
-    #         prompt=planner_prompt_template
-    #     )
-    # )
-
-    # graph.add_node(
-    #     "selector",
-    #     lambda state: SelectorAgent(
-    #         state=state,
-    #         model=model,
-    #         server=server,
-    #         guided_json=selector_guided_json,
-    #         stop=stop,
-    #         model_endpoint=model_endpoint,
-    #         temperature=temperature
-    #     ).invoke(
-    #         research_question=state["research_question"],
-    #         feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
-    #         previous_selections=lambda: get_agent_graph_state(state=state, state_key="selector_all"),
-    #         serp=lambda: get_agent_graph_state(state=state, state_key="serper_latest"),
-    #         prompt=selector_prompt_template,
-    #     )
-    # )
-
-    graph.add_node(
-        "reporter", 
-        lambda state: ReporterAgent(
-            state=state,
-            model=model,
-            server=server,
-            stop=stop,
-            model_endpoint=model_endpoint,
-            temperature=temperature
-        ).invoke(
-            research_question=state["research_question"],
-            feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_latest"),
-            previous_reports=lambda: get_agent_graph_state(state=state, state_key="reporter_all"),
-            research=lambda: get_agent_graph_state(state=state, state_key="scraper_latest"),
-            prompt=reporter_prompt_template
-        )
-    )
-
-    graph.add_node(
-        "reviewer", 
-        lambda state: ReviewerAgent(
-            state=state,
-            model=model,
-            server=server,
-            guided_json=reviewer_guided_json,
-            stop=stop,
-            model_endpoint=model_endpoint,
-            temperature=temperature
-        ).invoke(
-            research_question=state["research_question"],
-            feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_all"),
-            # planner=lambda: get_agent_graph_state(state=state, state_key="planner_latest"),
-            # selector=lambda: get_agent_graph_state(state=state, state_key="selector_latest"),
-            reporter=lambda: get_agent_graph_state(state=state, state_key="reporter_latest"),
-            # planner_agent=planner_prompt_template,
-            # selector_agent=selector_prompt_template,
-            # reporter_agent=reporter_prompt_template,
-            # serp=lambda: get_agent_graph_state(state=state, state_key="serper_latest"),
-            prompt=reviewer_prompt_template
-        )
-    )
-
-    graph.add_node(
-        "router", 
-        lambda state: RouterAgent(
-            state=state,
-            model=model,
-            server=server,
-            guided_json=router_guided_json,
-            stop=stop,
-            model_endpoint=model_endpoint,
-            temperature=temperature
-        ).invoke(
-            research_question=state["research_question"],
-            feedback=lambda: get_agent_graph_state(state=state, state_key="reviewer_all"),
-            # planner=lambda: get_agent_graph_state(state=state, state_key="planner_latest"),
-            # selector=lambda: get_agent_graph_state(state=state, state_key="selector_latest"),
-            # reporter=lambda: get_agent_graph_state(state=state, state_key="reporter_latest"),
-            # planner_agent=planner_prompt_template,
-            # selector_agent=selector_prompt_template,
-            # reporter_agent=reporter_prompt_template,
-            # serp=lambda: get_agent_graph_state(state=state, state_key="serper_latest"),
-            prompt=router_prompt_template
-        )
-    )
-
-
-    # graph.add_node(
-    #     "serper_tool",
-    #     lambda state: get_google_serper(
-    #         state=state,
-    #         plan=lambda: get_agent_graph_state(state=state, state_key="planner_latest")
-    #     )
-    # )
-
-    # graph.add_node(
-    #     "scraper_tool",
-    #     lambda state: scrape_website(
-    #         state=state,
-    #         research=lambda: get_agent_graph_state(state=state, state_key="selector_latest")
-    #     )
-    # )
-
-    graph.add_node(
-        "file_tree_tool",
-        lambda state: get_file_tree(
-            state=state,
-            directory=state["file_sys_path"]
-            # file_sys_path=lambda: get_agent_graph_state(state=state, state_key="file_system_manager_response")
         )
     )
 
     graph.add_node(
         "batch_script_tool",
-        lambda state: run_batch_script(
-            state=state,
-            script=lambda: get_agent_graph_state(state=state, state_key="file_system_manager_response")
-        )
+        lambda state: {
+            "batch_script_tool_response": [HumanMessage(content=run_batch_script_tool.invoke({
+                "script": extract_script_from_response(get_agent_graph_state(state=state, state_key="file_system_manager_latest"))
+            }))]
+        }
     )
 
     graph.add_node(
@@ -196,47 +53,18 @@ def create_graph(server=None, model=None, stop=None, model_endpoint=None, temper
         lambda state: FinalReportAgent(
             state=state
         ).invoke(
-            final_response=lambda: get_agent_graph_state(state=state, state_key="reporter_latest")
+            script_result=lambda: get_agent_graph_state(state=state, state_key="batch_script_tool_latest")
         )
     )
 
     graph.add_node("end", lambda state: EndNodeAgent(state).invoke())
-
-    # Define the edges in the agent graph
-    def pass_review(state: AgentGraphState):
-        review_list = state["router_response"]
-        if review_list:
-            review = review_list[-1]
-        else:
-            review = "No review"
-
-        if review != "No review":
-            if isinstance(review, HumanMessage):
-                review_content = review.content
-            else:
-                review_content = review
-            
-            review_data = json.loads(review_content)
-            next_agent = review_data["next_agent"]
-        else:
-            next_agent = "end"
-
-        return next_agent
 
     # Add edges to the graph
     graph.set_entry_point("file_tree_tool")
     graph.set_finish_point("end")
     graph.add_edge("file_tree_tool", "file_system_manager")
     graph.add_edge("file_system_manager", "batch_script_tool")
-    graph.add_edge("batch_script_tool", "reporter")
-    graph.add_edge("reporter", "reviewer")
-    graph.add_edge("reviewer", "router")
-
-    graph.add_conditional_edges(
-        "router",
-        lambda state: pass_review(state=state),
-    )
-
+    graph.add_edge("batch_script_tool", "final_report")
     graph.add_edge("final_report", "end")
 
     return graph
@@ -244,3 +72,17 @@ def create_graph(server=None, model=None, stop=None, model_endpoint=None, temper
 def compile_workflow(graph):
     workflow = graph.compile()
     return workflow
+
+def extract_script_from_response(response):
+    if isinstance(response, list) and response:
+        content = response[0].content
+    elif hasattr(response, 'content'):
+        content = response.content
+    else:
+        content = str(response)
+    
+    try:
+        parsed = json.loads(content)
+        return parsed.get("script", "echo No script found in response")
+    except json.JSONDecodeError:
+        return f"echo Error parsing response: {content[:100]}..."  # Return first 100 chars for debugging
