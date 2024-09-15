@@ -252,7 +252,7 @@ router_guided_json = {
 
 file_system_manager_prompt_template = """
 You are a file system manager. You will be provided with a file-tree depicting the structure of the file system.
-Your task is to execute the actions as given by the user query.
+Your task is to write a batch script to execute the actions given by the user query.
 
 Here is the path to the file system:
 {file_sys_path}

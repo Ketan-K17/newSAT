@@ -5,11 +5,12 @@ from states.state import AgentGraphState
 
 def run_batch_script(state: AgentGraphState, script):
     try:
+        script_content = script() if callable(script) else script
+        script_content = script_content.content if hasattr(script_content, 'content') else script_content
+        
         if not script_content:
             raise ValueError("Script content cannot be empty or None")
     
-        script_content = script() if callable(script) else script
-        script_content = script_content.content if hasattr(script_content, 'content') else script_content
         
         if isinstance(script_content, dict) and 'batch_script' in script_content:
             script_content = script_content['batch_script']
