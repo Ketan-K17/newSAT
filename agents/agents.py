@@ -1,4 +1,4 @@
-# import json
+import json
 # import yaml
 # import os
 from termcolor import colored
@@ -94,7 +94,13 @@ class PlannerAgent(Agent):
         response = ai_msg.content
 
         self.update_state("planner_response", response)
-        print(colored(f"Planner 👩🏿‍💻: {response}", 'cyan'))
+        print(colored(f"Planner 👩🏿‍💻:", 'cyan'))
+        try:
+            response_dict = json.loads(response)
+            for key, value in response_dict.items():
+                print(colored(f"  {key.upper()}: {value}", 'cyan'))
+        except json.JSONDecodeError:
+            print(colored(f"  {response}", 'cyan'))
         return self.state
 
 class SelectorAgent(Agent):
@@ -121,7 +127,13 @@ class SelectorAgent(Agent):
         ai_msg = llm.invoke(messages)
         response = ai_msg.content
 
-        print(colored(f"selector 🧑🏼‍💻: {response}", 'green'))
+        print(colored(f"Selector 🧑�‍💻:", 'green'))
+        try:
+            response_dict = json.loads(response)
+            for key, value in response_dict.items():
+                print(colored(f"  {key.upper()}: {value}", 'green'))
+        except json.JSONDecodeError:
+            print(colored(f"  {response}", 'green'))
         self.update_state("selector_response", response)
         return self.state
 
@@ -179,7 +191,13 @@ class ReviewerAgent(Agent):
         ai_msg = llm.invoke(messages)
         response = ai_msg.content
 
-        print(colored(f"Reviewer 👩🏽‍⚖️: {response}", 'magenta'))
+        print(colored(f"Reviewer 👩🏽‍⚖️:", 'magenta'))
+        try:
+            response_dict = json.loads(response)
+            for key, value in response_dict.items():
+                print(colored(f"  {key.upper()}: {value}", 'magenta'))
+        except json.JSONDecodeError:
+            print(colored(f"  {response}", 'magenta'))
         self.update_state("reviewer_response", response)
         return self.state
     

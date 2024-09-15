@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "graph-websearch-agent"
+version = "0.1.0"
+description = ""
+authors = ["Ketan Kunkalikar <ketankunkalikar33@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+langchain-core = "0.2.4"
+langgraph = "0.0.64"
+langchain-community = "0.2.3"
+langchain-openai = "0.1.8"
+beautifulsoup4 = "4.12.3"
+termcolor = "2.4.0"
+chainlit = "1.1.202"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

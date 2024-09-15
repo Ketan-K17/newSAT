@@ -14,6 +14,10 @@ model_endpoint = None
 # #model_endpoint = runpod_endpoint + 'v1/chat/completions'
 # stop = "<|end_of_text|>"
 
+server = 'groq'
+model = 'llama3-groq-70b-8192-tool-use-preview'
+model_endpoint = None
+
 iterations = 40
 
 print ("Creating graph and compiling workflow...")
